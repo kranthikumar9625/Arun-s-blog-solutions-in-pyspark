@@ -1,0 +1,119 @@
+#################### arun's blog solutions ###########################################
+
+############# prob 5-1 Sqoop ######################
+
+sqoop import \
+--connect "jdbc:mysql://localhost:3306/retail_db" \
+--username root \
+--password kranthi \
+--table products_replica \
+--fields-terminated-by \| \
+--lines-terminated-by \n \
+--null-non-string -1 \
+--null-string 'NOT-AVAILABLE' \
+--where "product_id between 1 and 1000" \
+--m 3 \
+--as-textfile \
+--target-dir /user/training/problem1/products_rep_text 
+
+
+ ############### prob 5-2 #################
+
+ sqoop import \
+    --connect "jdbc:mysql://localhost:3306/retail_db" \
+    --username root \
+    --password kranthi \
+    --table products_replica \
+    --target-dir /user/training/problem5/products-text-part1 \
+    --fields-terminated-by  '*' \
+    --lines-terminated-by \n \
+    --null-non-string -1000 \
+    --null-string "NA" \
+    --where "product_id <= 1111" \
+    --m 2 \
+    --as-textfile
+
+
+   ############## prob 5-3 ####################
+
+   sqoop import \
+    --connect "jdbc:mysql://localhost:3306/retail_db" \
+    --username root \
+    --password kranthi \
+    --table products_replica \
+    --target-dir /user/training/problem5/products-text-part2 \
+    --fields-terminated-by  '*' \
+    --lines-terminated-by \n \
+    --null-non-string -1000 \
+    --null-string "NA" \
+    --where "product_id > 1111" \
+    --m 5 \
+    --as-textfile
+
+############## SQOOP MERGE ######################
+
+sqoop codegen \
+ --connect jdbc:mysql://localhost/retail_db \
+ --username root \
+ --password kranthi \ 
+ --table products_replica
+
+new
+sqoop merge \
+ --class-name products_replica \
+ --new-data /user/training/problem5/products-text-part2 \
+ --onto /user/training/problem5/products-text-part1 \
+ --target-dir /user/training/problem5/products-text-both-parts \
+ --merge-key product_id
+
+
+sqoop job \
+--create probjob \
+-- import \
+--connect jdbc:mysql://localhost:3306/retail_db \
+--username root \
+--password kranthi \
+--table products_replica \
+--target-dir /user/training/problem5/products-incremental \
+--as-textfile \
+--incremental append \
+--check-column product_id \
+--last-value 0 
+
+################# sqoop job for hoive #############################
+
+sqoop job \
+--create problemjob \
+-- import \
+--connect jdbc:mysql://localhost:3306/retail_db \
+--username root \
+--password kranthi \
+--table products_replica \
+--hive-import \
+--hive-database problem5 \
+--hive-table products_hive \
+--check-column product_id \
+--incremental   append \
+--last-value 0
+
+sqoop import \
+--connect jdbc:mysql://localhost:3306/retail_db \
+--username root \
+--password kranthi \
+--table products_replica \
+--hive-import \
+--hive-database problem5 \
+--hive-table products_hive 
+
+
+############## sqoop export from hive to sql ##########
+
+sqoop export \
+--connect jdbc:mysql://localhost:3306/retail_db \
+--username root \
+--password kranthi \
+--table products_external \
+--export-dir /user/hive/warehouse/problem5.db
+-m 1
+
+sqoop job --exec probjob

@@ -1,0 +1,68 @@
+############ aruns blog #################################
+
+################ problem 1 #########################
+
+##### 1
+/usr/lib/sqoop/bin/sqoop import \
+-Dmapreduce.job.user.classpath.first=true \
+-Dhadoop.security.credential.provider.path=jceks://x.jceks \
+--connect jdbc:mysql://34.67.251.162:3306/retail_db \
+--username root \
+--password root \
+--table orders \
+--target-dir /user/kranthi/arunblog/s1/p1/ \
+--as-avrodatafile \
+--compress \
+--compression-codec snappy
+
+##### 2
+/usr/lib/sqoop/bin/sqoop import \
+-Dmapreduce.job.user.classpath.first=true \
+-Dhadoop.security.credential.provider.path=jceks://x.jceks \
+--connect jdbc:mysql://34.67.251.162:3306/retail_db \
+--username root \
+--password root \
+--table order_items \
+--target-dir /user/kranthi/arunblog/s1/p2/ \
+--as-avrodatafile \
+--compress \
+--compression-codec snappy
+
+####### 3
+orders = spark.read.format('com.databricks.spark.avro').load('/user/kranthi/arunblog/s1/p1/')
+order_items = spark.read.format('com.databricks.spark.avro').load('/user/kranthi/arunblog/s1/p2/')
+
+orders.show(5)
+order_items.show(5)
+
+orders.registerTempTable('orders_tbl')
+order_items.registerTempTable('order_items_tbl')
+
+orders.printSchema()
+
+
+result = spark.sql("select to_date(from_unixtime((order_date/1000 )) ) as formated_date,count(o.order_id) as total_orders,round(sum(oi.order_item_subtotal),2) as total_amount,order_status from orders_tbl o left join order_items_tbl oi  on o.order_id = order_item_order_id group by o.order_status, formated_date order by total_orders asc,order_status asc,total_amount ")
+
+##### 4
+result.write.parquet('/user/kranthi/arunblog/s1/solutions/reult-parq_gzip',compression ='gzip')
+
+#### 5
+result.write.parquet('/user/kranthi/arunblog/s1/solutions/reult-parq_snappy',compression ='snappy')
+
+##### 6
+result.write.csv('/user/kranthi/arunblog/s1/solutions/reult-csv',compression ='uncompressed')
+
+
+##### 7
+######## creating table in mysql ######
+
+create table result1 ( order_date datetime, total_orders int,total_amount float, order_status varchar(40) );
+
+
+###### sqoop export #######
+/usr/lib/sqoop/bin/sqoop export \
+--connect jdbc:mysql://34.67.251.162:3306/retail_db_results \
+--username root \
+--password root \
+--table result1 \
+--export-dir '/user/kranthi/arunblog/s1/solutions/reult-csv'

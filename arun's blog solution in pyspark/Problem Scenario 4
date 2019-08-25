@@ -1,0 +1,99 @@
+#################################### arun's blog solutions #########################
+
+
+######################## prob 4 ###############
+
+##### 1
+/usr/lib/sqoop/bin/sqoop import \
+--connect jdbc:mysql://34.67.251.162:3306/retail_db \
+--username root \
+--password root \
+--table orders \
+--target-dir /user/kranthi/arunblog/s4/p1/orders \
+--fields-terminated-by '\t' \
+--lines-terminated-by '\n' \
+--as-textfile 
+
+
+###### 2
+/usr/lib/sqoop/bin/sqoop import \
+-Dmapreduce.job.user.classpath.first=true \
+-Dhadoop.security.credential.provider.path=jceks://x.jceks \
+--connect jdbc:mysql://34.67.251.162:3306/retail_db \
+--username root \
+--password root \
+--table orders \
+--target-dir /user/kranthi/arunblog/s4/p1/orders_avro \
+--as-avrodatafile
+
+
+###### 3
+/usr/lib/sqoop/bin/sqoop import \
+--connect jdbc:mysql://34.67.251.162:3306/retail_db \
+--username root \
+--password root \
+--table orders \
+--target-dir /user/kranthi/arunblog/s4/p1/orders_parquet \
+--as-parquetfile
+
+
+###### 4
+
+df_avro = spark.read.format('com.databricks.spark.avro').load('/user/kranthi/arunblog/s4/p1/orders_avro')
+
+#### I
+
+df_avro.write.parquet('/user/kranthi/arunblog/s4/solution/parq_snappy',compression = 'snappy')
+
+### II
+
+df_avro.selectExpr("concat(order_id,'\t',order_date,'\t',order_customer_id,'\t',order_status)").write.text('/user/kranthi/arunblog/s4/solution/text_gzip',compression = 'gzip')
+
+### III
+
+df_avro.rdd.map(tuple).map(lambda x: (str(x[0]), str(x[1])+'\t'+str(x[2])+'\t'+x[3])).saveAsSequenceFile('/user/kranthi/arunblog/s4/solution/seq1')
+
+### IV
+
+df_avro.selectExpr("concat(order_id,'\t',order_date,'\t',order_customer_id,'\t',order_status)").write.text('/user/kranthi/arunblog/s4/solution/text_snappy',compression = 'snappy')
+
+######## 5
+
+parq_snap = spark.read.parquet('/user/kranthi/arunblog/s4/solution/parq_snappy')
+
+#### 5.1
+
+parq_snap.write.parquet('/user/kranthi/arunblog/s4/solution/p5/parq_uncomp',compression = 'uncompressed')
+
+#### 5.2
+
+parq_snap.write.format('com.databricks.spark.avro').save('/user/kranthi/arunblog/s4/solution/p5/avro_snap',compression = 'snappy')
+
+
+###### 6
+
+avro_snap = spark.read.format('com.databricks.spark.avro').load('/user/kranthi/arunblog/s4/solution/p5/avro_snap')
+
+
+### 6.1
+
+avro_snap.write.json('/user/kranthi/arunblog/s4/solution/p6/json_nocomp',compression = 'uncompressed')
+
+### 6.2
+
+avro_snap.write.json('/user/kranthi/arunblog/s4/solution/p6/json_gzip',compression = 'gzip')
+
+######## 7
+
+csv_gzip = spark.read.json('/user/kranthi/arunblog/s4/solution/p6/json_gzip')
+
+csv_gzip.write.csv('/user/kranthi/arunblog/s4/solution/p7/csv_gzip')
+
+######## 8
+
+seq = sc.sequenceFile('/user/kranthi/arunblog/s4/solution/seq1')
+
+seq_DF = seq. \
+map(lambda r: Row(order_id=int(r[0]), order_date=r[1].split("\t")[0], order_customer_id=int(r[1].split("\t")[1]), order_status=r[1].split("\t")[2])).toDF()
+
+seq_DF.write.orc('/user/kranthi/arunblog/s4/solution/p8/orc')

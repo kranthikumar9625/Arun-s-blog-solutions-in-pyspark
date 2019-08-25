@@ -1,0 +1,48 @@
+#################################### arun's blog solutions #########################
+############## problem 2 ############
+
+#### 1
+/usr/lib/sqoop/bin/sqoop import \
+--connect jdbc:mysql://34.67.251.162:3306/retail_db \
+--username root \
+--password root \
+--table products \
+--target-dir /user/kranthi/products \
+--fields-terminated-by '|' \
+--as-textfile
+
+##### 2
+hadoop fs -mv /user/kranthi/products /user/kranthi/arunblog/s2/p1/products
+
+##### 3
+hadoop fs -chmod 765 /user/kranthi/arunblog/s2/p1/products
+
+##### 4
+product = spark.read.csv('/user/kranthi/arunblog/s2/p1/products',sep = '|').toDF('product_id','product_category_id' ,'product_name' ,'product_description' , 'product_price' , 'product_image ')
+
+product.show(5)
+
+product.printSchema()
+
+products1 = product.withColumn('product_id',product.product_id.cast(IntegerType())).withColumn('product_category_id',product.product_category_id.cast(IntegerType())).withColumn('product_price',product.product_price.cast(FloatType()))
+
+products1.printSchema()
+
+products1.registerTempTable('prod_tbl')
+
+spark.sql("select product_category_id,max(product_price) as max_price, count(product_id) as total_products, round(avg(product_price),2) as avg_price, min(product_price) as min_price from prod_tbl where product_price < 100 group by product_category_id").show(5)
+
+result = spark.sql("select product_category_id,max(product_price) as max_price, count(product_id) as total_products, round(avg(product_price),2) as avg_price, min(product_price) as min_price from prod_tbl where product_price < 100 group by product_category_id")
+
+
+##### 5
+result.write.format('com.databricks.spark.avro').save('/user/kranthi/arunblog/s2/p1/solution',compression='snappy')
+
+
+validate: 
+
+##### note: avro file dosen't show compression extention in output ####
+
+hadoop fs -ls /user/kranthi/arunblog/s2/p1/solution
+
+hadoop fs -cat /user/kranthi/arunblog/s2/p1/solution/part-00198-31f4a3c4-6952-4c36-bb48-7aa50410c990-c000.avro | head
